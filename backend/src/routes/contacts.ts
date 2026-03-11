@@ -1,4 +1,5 @@
 import { Router, Request, Response } from "express";
+import { z } from "zod";
 import knexDb from "../db/knex";
 import {
   createContactSchema,
@@ -7,6 +8,11 @@ import {
 } from "../validators/contacts";
 
 const router = Router();
+const contactsListQuerySchema = z.object({
+  query: z.string().optional().default(""),
+  sortBy: z.enum(["name", "total_donated"]).optional(),
+  sortOrder: z.enum(["asc", "desc"]).optional(),
+});
 
 function handleError(error: unknown, res: Response) {
   console.error("Contacts error:", error);
@@ -15,15 +21,52 @@ function handleError(error: unknown, res: Response) {
 
 router.get("/", async (req: Request, res: Response) => {
   try {
-    const contacts = await knexDb("contacts")
+    const parsedQuery = contactsListQuerySchema.safeParse(req.query);
+    if (!parsedQuery.success) {
+      res.status(400).json({
+        error: "Validation failed",
+        details: parsedQuery.error.errors.map((e) => ({
+          field: e.path.join("."),
+          message: e.message,
+        })),
+      });
+      return;
+    }
+
+    const { query: rawQuery, sortBy, sortOrder } = parsedQuery.data;
+    const query = rawQuery.trim();
+
+    const contactsQuery = knexDb("contacts")
       .select(
         "contacts.*",
         knexDb.raw("COALESCE(SUM(donations.amount), 0) as total_donated"),
         knexDb.raw("COUNT(donations.id) as donation_count")
       )
       .leftJoin("donations", "contacts.id", "donations.contact_id")
-      .groupBy("contacts.id")
-      .orderBy("contacts.created_at", "desc");
+      .groupBy("contacts.id");
+
+    if (query) {
+      const searchValue = `%${query}%`;
+      contactsQuery.where((qb) => {
+        qb.where("contacts.first_name", "like", searchValue)
+          .orWhere("contacts.last_name", "like", searchValue)
+          .orWhere("contacts.email", "like", searchValue);
+      });
+    }
+
+    if (sortBy === "name") {
+      const direction = sortOrder ?? "asc";
+      contactsQuery
+        .orderByRaw(`LOWER(contacts.first_name) ${direction}`)
+        .orderByRaw(`LOWER(contacts.last_name) ${direction}`);
+    } else if (sortBy === "total_donated") {
+      const direction = sortOrder ?? "desc";
+      contactsQuery.orderBy("total_donated", direction);
+    } else {
+      contactsQuery.orderBy("contacts.created_at", "desc");
+    }
+
+    const contacts = await contactsQuery;
 
     res.json(contacts);
   } catch (error) {

@@ -4,8 +4,16 @@ import { useContactsContext } from "./ContactsProvider";
 import { ContactCard } from "./ContactCard";
 
 export function ContactList() {
-  const { contacts, isLoading, error, viewMode, selectedIds, selectAll, clearSelection } =
-    useContactsContext();
+  const {
+    contacts,
+    isLoading,
+    error,
+    viewMode,
+    selectedIds,
+    selectAll,
+    clearSelection,
+    hasActiveQuery,
+  } = useContactsContext();
 
   if (isLoading) {
     return <div className="p-6 text-gray-500">Loading contacts...</div>;
@@ -22,8 +30,14 @@ export function ContactList() {
   if (contacts.length === 0) {
     return (
       <div className="text-center py-12 text-gray-500">
-        <p className="text-lg">No contacts yet</p>
-        <p className="text-sm mt-1">Contacts will appear here once donors contribute</p>
+        <p className="text-lg">
+          {hasActiveQuery ? "No matching contacts" : "No contacts yet"}
+        </p>
+        <p className="text-sm mt-1">
+          {hasActiveQuery
+            ? "Try a different name or email search."
+            : "Contacts will appear here once donors contribute"}
+        </p>
       </div>
     );
   }

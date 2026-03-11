@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useState, useCallback } from "react";
+import { createContext, useContext, useState, useCallback, useEffect } from "react";
 import { useContactsList } from "@/hooks/useContacts";
 import type { Contact } from "@/types/contacts";
 
@@ -14,6 +14,13 @@ interface ContactsContextValue {
   selectAll: () => void;
   viewMode: "grid" | "list";
   setViewMode: (mode: "grid" | "list") => void;
+  query: string;
+  setQuery: (value: string) => void;
+  sortBy: "name" | "total_donated";
+  setSortBy: (value: "name" | "total_donated") => void;
+  sortOrder: "asc" | "desc";
+  setSortOrder: (value: "asc" | "desc") => void;
+  hasActiveQuery: boolean;
 }
 
 const ContactsContext = createContext<ContactsContextValue | null>(null);
@@ -29,9 +36,25 @@ export function useContactsContext() {
 }
 
 export function ContactsProvider({ children }: { children: React.ReactNode }) {
-  const { data: contacts = [], isLoading, error } = useContactsList();
+  const [query, setQuery] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
+  const [sortBy, setSortBy] = useState<"name" | "total_donated">("name");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
+  const { data: contacts = [], isLoading, error } = useContactsList({
+    query: debouncedQuery || undefined,
+    sortBy,
+    sortOrder,
+  });
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [viewMode, setViewMode] = useState<"grid" | "list">("list");
+
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      setDebouncedQuery(query.trim());
+    }, 300);
+
+    return () => clearTimeout(timeout);
+  }, [query]);
 
   const toggleSelection = useCallback((id: number) => {
     setSelectedIds((prev) => {
@@ -65,6 +88,13 @@ export function ContactsProvider({ children }: { children: React.ReactNode }) {
         selectAll,
         viewMode,
         setViewMode,
+        query,
+        setQuery,
+        sortBy,
+        setSortBy,
+        sortOrder,
+        setSortOrder,
+        hasActiveQuery: debouncedQuery.length > 0,
       }}
     >
       {children}

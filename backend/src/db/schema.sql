@@ -17,6 +17,12 @@ CREATE TABLE IF NOT EXISTS contacts (
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE INDEX IF NOT EXISTS idx_contacts_name
+  ON contacts(last_name, first_name);
+
+CREATE INDEX IF NOT EXISTS idx_contacts_email
+  ON contacts(email);
+
 CREATE TABLE IF NOT EXISTS donations (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   form_id INTEGER NOT NULL,

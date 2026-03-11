@@ -2,8 +2,25 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { API_BASE_URL } from "@/lib/config";
 import type { Contact, ContactDetail, CreateContactInput } from "@/types/contacts";
 
-async function fetchContacts(): Promise<Contact[]> {
-  const response = await fetch(`${API_BASE_URL}/contacts`);
+export interface ContactsListFilters {
+  query?: string;
+  sortBy?: "name" | "total_donated";
+  sortOrder?: "asc" | "desc";
+}
+
+async function fetchContacts(filters: ContactsListFilters): Promise<Contact[]> {
+  const params = new URLSearchParams();
+
+  if (filters.query) params.set("query", filters.query);
+  if (filters.sortBy) params.set("sortBy", filters.sortBy);
+  if (filters.sortOrder) params.set("sortOrder", filters.sortOrder);
+
+  const queryString = params.toString();
+  const url = queryString
+    ? `${API_BASE_URL}/contacts?${queryString}`
+    : `${API_BASE_URL}/contacts`;
+
+  const response = await fetch(url);
   if (!response.ok) throw new Error("Failed to fetch contacts");
   return response.json();
 }
@@ -27,10 +44,10 @@ async function createContact(data: CreateContactInput): Promise<Contact> {
   return response.json();
 }
 
-export function useContactsList() {
+export function useContactsList(filters: ContactsListFilters) {
   return useQuery({
-    queryKey: ["contacts"],
-    queryFn: fetchContacts,
+    queryKey: ["contacts", filters],
+    queryFn: () => fetchContacts(filters),
   });
 }
 
